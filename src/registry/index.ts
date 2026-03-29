@@ -78,8 +78,15 @@ const STATUS_TO_VK_KEY: Record<string, keyof VKStatusMap | null> = {
   blocked: null
 }
 
+interface DeferredEvent {
+  eventType: string
+  payload: unknown
+  queued_at: string
+}
+
 export class SessionRegistry {
   private sessions: Map<string, Session> = new Map()
+  private deferredEvents: Map<string, DeferredEvent[]> = new Map()
 
   async register(input: SessionInput): Promise<Session> {
     const now = new Date().toISOString()
@@ -190,5 +197,32 @@ export class SessionRegistry {
     if (session?.pid != null) {
       deleteActiveFile(session.pid)
     }
+  }
+
+  /** Returns true if any active session owns this VK card and is in progress/in_review */
+  isAgentOwned(vkCardId: string): boolean {
+    for (const session of this.sessions.values()) {
+      if (
+        session.vk_card_id === vkCardId &&
+        (session.status === 'in_progress' || session.status === 'in_review')
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+
+  /** Queue a GitHub event for a card currently owned by an agent */
+  deferEvent(vkCardId: string, eventType: string, payload: unknown): void {
+    const queue = this.deferredEvents.get(vkCardId) ?? []
+    queue.push({ eventType, payload, queued_at: new Date().toISOString() })
+    this.deferredEvents.set(vkCardId, queue)
+  }
+
+  /** Drain and return all deferred events for a card, clearing the queue */
+  releaseDeferredEvents(vkCardId: string): DeferredEvent[] {
+    const events = this.deferredEvents.get(vkCardId) ?? []
+    this.deferredEvents.delete(vkCardId)
+    return events
   }
 }
