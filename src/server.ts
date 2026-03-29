@@ -72,6 +72,14 @@ app.get('/sessions', async () => {
   return { sessions: registry.list() }
 })
 
+app.get<{ Params: { id: string } }>('/sessions/:id', async (request, reply) => {
+  const session = registry.get(request.params.id)
+  if (!session) {
+    return reply.status(404).send({ error: `Session not found: ${request.params.id}` })
+  }
+  return session
+})
+
 const start = async () => {
   try {
     await app.listen({ port: 3334, host: '0.0.0.0' })
