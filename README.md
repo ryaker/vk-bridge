@@ -73,11 +73,29 @@ npm install
 # Install global Claude Code hooks (one-time setup)
 npm run install-hooks
 
+# Install the vkb CLI to your PATH
+npm run install-vkb
+
 # Start the bridge
 npm run dev
 ```
 
 After `install-hooks`, every `claude` session — in any project — auto-registers and gets a VK card. You'll see the card move to In Progress the moment Claude starts working.
+
+```bash
+# Check what's in flight
+vkb status
+
+# Move the current card when you're done
+vkb review
+vkb done
+
+# See all active agent sessions
+vkb sessions
+
+# Scan ~/Dev for new repos and link them to VK
+vkb scan
+```
 
 ---
 
@@ -190,7 +208,7 @@ The context injection means Claude sees something like this at the start of each
 |-------|--------|------|
 | Phase 1 | ✅ Done | Agent registry, Card Matcher, Claude Code hooks |
 | Phase 2 | ✅ Done | GitHub bidirectional sync (webhooks + poller) |
-| Phase 3 | 🔨 In progress | Project Discovery, `vkb` CLI |
+| Phase 3 | ✅ Done | Project Discovery, `vkb` CLI |
 | Phase 4 | Planned | Gemini + Zora adapters |
 | Phase 5 | Planned | Contribute External Session API + webhooks upstream to VK |
 
