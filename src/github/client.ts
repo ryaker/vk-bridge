@@ -9,6 +9,16 @@ export interface GitHubIssue {
   labels: string[]
 }
 
+export interface GitHubPR {
+  number: number
+  title: string
+  body: string | null
+  url: string
+  head: { ref: string }
+  state: 'open' | 'closed'
+  merged: boolean
+}
+
 export interface GitHubComment {
   id: number
   body: string
@@ -118,6 +128,28 @@ export class GitHubClient {
     const raw = await this.request<Array<Record<string, unknown>>>('/issues?state=open&per_page=100')
     // Filter out pull requests (GitHub returns PRs in issues endpoint)
     return raw.filter(r => !r.pull_request).map(r => this.mapIssue(r))
+  }
+
+  /** Find an open PR for the given branch name. Returns null if none or on error. */
+  async findPRForBranch(branch: string): Promise<GitHubPR | null> {
+    try {
+      const raw = await this.request<Array<Record<string, unknown>>>(
+        `/pulls?state=open&head=${encodeURIComponent(this.repo.split('/')[0])}:${encodeURIComponent(branch)}&per_page=5`
+      )
+      if (!raw.length) return null
+      const pr = raw[0]
+      return {
+        number: pr.number as number,
+        title: pr.title as string,
+        body: (pr.body as string | null) ?? null,
+        url: pr.html_url as string,
+        head: { ref: (pr.head as Record<string, string>).ref },
+        state: pr.state as 'open' | 'closed',
+        merged: !!(pr.merged as boolean)
+      }
+    } catch {
+      return null
+    }
   }
 
   /** Parse 'Closes #NNN', 'Fixes #NNN', 'Resolves #NNN' from PR body */
