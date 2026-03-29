@@ -209,7 +209,7 @@ The context injection means Claude sees something like this at the start of each
 | Phase 1 | ✅ Done | Agent registry, Card Matcher, Claude Code hooks |
 | Phase 2 | ✅ Done | GitHub bidirectional sync (webhooks + poller) |
 | Phase 3 | ✅ Done | Project Discovery, `vkb` CLI |
-| Phase 4 | Planned | Gemini + Zora adapters |
+| Phase 4 | ✅ Done | Gemini + Zora adapters, Card Matcher Strategy 3 |
 | Phase 5 | Planned | Contribute External Session API + webhooks upstream to VK |
 
 ---
