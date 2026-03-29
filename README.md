@@ -16,6 +16,21 @@ VK is designed for humans to create tasks then start agents from the UI. Most ac
 - **All `~/Dev` projects** — not just ones with GitHub issues
 - **Terminal CLI** (`vkb`) — create/manage cards without the UI
 
+## Quick Start
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Install Claude Code hooks (auto-registers every claude session)
+npm run install-hooks
+
+# 3. Start vk-bridge
+npm run dev
+```
+
+After installing hooks, every `claude` session auto-creates a VK card and moves it through columns as you work.
+
 ## Docs
 
 - [`SPEC.md`](./SPEC.md) — full architecture and implementation spec
