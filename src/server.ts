@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import { SessionRegistry } from './registry/index.js'
 import { VKClient } from './vk/client.js'
 import { loadConfig } from './config.js'
+import { verifySignature, handleWebhook } from './github/webhook.js'
 
 const app = Fastify({ logger: true })
 const registry = new SessionRegistry()
@@ -78,6 +79,47 @@ app.get<{ Params: { id: string } }>('/sessions/:id', async (request, reply) => {
     return reply.status(404).send({ error: `Session not found: ${request.params.id}` })
   }
   return session
+})
+
+// Webhook endpoint — Fastify needs raw body for HMAC verification
+app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+  try {
+    done(null, JSON.parse(body as string))
+  } catch (err) {
+    done(err as Error, undefined)
+  }
+})
+
+app.post<{ Body: unknown }>('/github/webhook', {
+  config: { rawBody: true }
+}, async (request, reply) => {
+  const eventType = request.headers['x-github-event'] as string | undefined
+  const signature = request.headers['x-hub-signature-256'] as string | undefined
+
+  if (!eventType) {
+    return reply.status(400).send({ error: 'Missing X-GitHub-Event header' })
+  }
+
+  // Verify HMAC signature if secret is configured for this repo
+  if (signature) {
+    const rawBody = JSON.stringify(request.body)
+    const config = loadConfig()
+    // Find the matching project by inspecting the payload's repository
+    const repoFullName = (request.body as Record<string, { full_name?: string }>)?.repository?.full_name
+    if (repoFullName) {
+      // Find project config for this repo
+      const projectEntry = Object.entries(config.projects).find(
+        ([, proj]) => proj.github_repo === repoFullName
+      )
+      const secret = projectEntry?.[1]?.github_webhook_secret
+      if (secret && !verifySignature(rawBody, signature, secret)) {
+        return reply.status(401).send({ error: 'Invalid webhook signature' })
+      }
+    }
+  }
+
+  const result = await handleWebhook(eventType, request.body as Record<string, unknown>, registry)
+  return reply.status(200).send({ ok: true, result })
 })
 
 const start = async () => {
