@@ -3,9 +3,11 @@ import { SessionRegistry } from './registry/index.js'
 import { VKClient } from './vk/client.js'
 import { loadConfig } from './config.js'
 import { verifySignature, handleWebhook } from './github/webhook.js'
+import { VKGitHubPoller } from './github/poller.js'
 
 const app = Fastify({ logger: true })
 const registry = new SessionRegistry()
+const poller = new VKGitHubPoller()
 
 interface SessionBody {
   runtime: 'claude_code' | 'gemini' | 'zora' | 'unknown'
@@ -126,6 +128,7 @@ const start = async () => {
   try {
     await app.listen({ port: 3334, host: '0.0.0.0' })
     console.log('vk-bridge listening on :3334')
+    poller.start()
   } catch (err) {
     app.log.error(err)
     process.exit(1)
