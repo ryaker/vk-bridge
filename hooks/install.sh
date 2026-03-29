@@ -64,3 +64,24 @@ with open(settings_path, "w") as f:
 
 print("✓ Hooks installed into", settings_path)
 PYEOF
+
+# Offer Gemini wrapper install
+echo ""
+echo "Gemini CLI wrapper (optional):"
+echo "  To track Gemini sessions, add this to your ~/.zshrc:"
+echo "    source $HOOKS_DIR/gemini-wrapper.sh"
+echo ""
+ZSHRC="${HOME}/.zshrc"
+if [ -f "$ZSHRC" ]; then
+  if grep -q "gemini-wrapper.sh" "$ZSHRC"; then
+    echo "  ✓ Gemini wrapper already in $ZSHRC"
+  else
+    read -r -p "  Add Gemini wrapper to $ZSHRC now? [y/N] " REPLY
+    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+      echo "" >> "$ZSHRC"
+      echo "# vk-bridge Gemini wrapper" >> "$ZSHRC"
+      echo "source $HOOKS_DIR/gemini-wrapper.sh" >> "$ZSHRC"
+      echo "  ✓ Added to $ZSHRC (restart your shell or run: source ~/.zshrc)"
+    fi
+  fi
+fi
