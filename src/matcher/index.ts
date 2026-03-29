@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'fs'
 import { resolve, join } from 'path'
 import type { VKClient, VKIssue } from '../vk/client.js'
 import type { BridgeConfig } from '../config.js'
+import { GitHubClient } from '../github/client.js'
+import { getProjectConfig } from '../config.js'
 
 export interface SessionInput {
   project_path: string
@@ -13,6 +15,7 @@ export interface MatchResult {
   card: VKIssue
   created: boolean
   strategy: 'worktree_metadata' | 'branch_issue_number' | 'branch_pr' | 'fuzzy_title' | 'created_new'
+
 }
 
 /** Resolve project_path → VK project_id using config */
@@ -101,8 +104,32 @@ export class CardMatcher {
       if (card) return { card, created: false, strategy: 'branch_issue_number' }
     }
 
-    // Strategy 3: Branch → GitHub PR (skip if no github config)
-    // (full implementation in Phase 2 GitHub bridge)
+    // Strategy 3: Branch → GitHub PR (only if project has GitHub config)
+    if (!ghNumber) {
+      const projConfig = getProjectConfig(session.project_path, this.config)
+      if (projConfig?.github_repo && projConfig?.github_token) {
+        const gh = new GitHubClient(projConfig.github_repo, projConfig.github_token)
+        const pr = await gh.findPRForBranch(session.branch).catch(() => null)
+        if (pr) {
+          // Try to find VK card via linked issue in PR body
+          const linkedNum = GitHubClient.extractLinkedIssue(pr.body)
+          if (linkedNum) {
+            const card = await this.vk.findIssueByGHNumber(projectId, linkedNum)
+            if (card) return { card, created: false, strategy: 'branch_pr' }
+          }
+          // PR exists but no linked issue — create card from PR title
+          const card = await this.vk.createIssue({
+            project_id: projectId,
+            status_id: statuses.in_progress,
+            title: pr.title,
+            description: `From PR #${pr.number}: ${pr.url}\n\n${pr.body ?? ''}`.trim(),
+            priority: priorityFromBranch(session.branch),
+            sort_order: Date.now() / 1e10
+          })
+          return { card, created: true, strategy: 'branch_pr' }
+        }
+      }
+    }
 
     // Strategy 4: Fuzzy title match
     const fuzzy = fuzzyMatch(session.branch, cards)
