@@ -4,10 +4,12 @@ import { VKClient } from './vk/client.js'
 import { loadConfig } from './config.js'
 import { verifySignature, handleWebhook } from './github/webhook.js'
 import { VKGitHubPoller } from './github/poller.js'
+import { ProjectDiscovery } from './discovery/index.js'
 
 const app = Fastify({ logger: true })
 const registry = new SessionRegistry()
 const poller = new VKGitHubPoller()
+const discovery = new ProjectDiscovery()
 
 interface SessionBody {
   runtime: 'claude_code' | 'gemini' | 'zora' | 'unknown'
@@ -129,6 +131,22 @@ const start = async () => {
     await app.listen({ port: 3334, host: '0.0.0.0' })
     console.log('vk-bridge listening on :3334')
     poller.start()
+    // Non-blocking startup scan — logs results, auto-registers matched repos
+    void discovery.scan().then(repos => {
+      const untracked = repos.filter(r => !r.inConfig)
+      if (untracked.length > 0) {
+        const written = discovery.syncConfig(untracked)
+        if (written > 0) {
+          console.log(`[vk-bridge] discovery: auto-registered ${written} new repo(s) in config`)
+        }
+        const unmatched = untracked.filter(r => r.vkProjectId === null)
+        if (unmatched.length > 0) {
+          console.log(`[vk-bridge] discovery: ${unmatched.length} repo(s) have no VK project match — run 'vkb scan' to review`)
+        }
+      }
+    }).catch(err => {
+      console.error('[vk-bridge] discovery error:', (err as Error).message)
+    })
   } catch (err) {
     app.log.error(err)
     process.exit(1)
